@@ -143,10 +143,35 @@ void cmdAdd(Args_t *args) {
     printf("Report added successfully with ID %d\n", report.report_id);
 }
 
+void cmdList(Args_t *args){
+    char dist_report_path[256];
+    snprintf(dist_report_path,sizeof(dist_report_path),"%s/%s/reports.dat", BASE_DIR, args->district);
+
+    int fd = open(dist_report_path, O_RDONLY);
+    if(fd == -1){
+        printf("Unknown district: %s", args->district);
+    }
+
+
+    Report_t report;
+    while(read(fd, &report, sizeof(Report_t)) == sizeof(Report_t)){
+        printf("Report ID: %d, ", report.report_id);
+        printf("Name: %s, ",report.name);
+        printf("Latitude: %f| Longitude: %f, ", report.latitude, report.longitude);
+        printf("Issue category: %s, ", report.issue_category);
+        printf("Severity: %d, ", report.severity);
+        printf("Description: %s, ", report.description);
+        printf("Timestamp: %ld\n", report.timestamp);
+        printf("-----------------------------------\n");
+    }
+    close(fd);
+}
+
 void runCommand(Args_t *args){
     if (strcmp(args->command, "add") == 0)
-       cmdAdd(args);
-    // else if (strcmp(command, "list") == 0)
+        cmdAdd(args);
+    else if (strcmp(args->command, "list") == 0)
+        cmdList(args);
       
     // else if (strcmp(command, "view") == 0)
         
