@@ -10,6 +10,7 @@
 typedef enum role {Inspector, Manager} Role_t; //Inspector - group, Manager - owner
 
 #define BASE_DIR "city_districts"
+#define SEVERITY_THRESHOLD 2
 
 typedef struct {
     Role_t role;
@@ -129,6 +130,11 @@ void cmdAdd(Args_t *args) {
         char relative_target[256];
         snprintf(relative_target, sizeof(relative_target), "%s/reports.dat", args->district);
         symlink(relative_target, link_name);
+        fd = open(cfg_path, O_RDWR);
+        char config_text[40];
+        snprintf(config_text, sizeof(config_text), "threshold=%d\n", SEVERITY_THRESHOLD);
+        write(fd, config_text, strlen(config_text));
+        close(fd);
     }
 
     Report_t report = {0};
@@ -178,19 +184,14 @@ void checkSymlink(Args_t *args) {
     snprintf(dat_path, sizeof(dat_path), "%s/%s/reports.dat", BASE_DIR, args->district);
 
     struct stat lst;
-    // check if symlink exists
     if (lstat(link_name, &lst) == -1) {
         printf("Warning: symlink %s does not exist\n", link_name);
         return;
     }
-
-    // check if it's actually a symlink
     if (!S_ISLNK(lst.st_mode)) {
         printf("Warning: %s is not a symlink\n", link_name);
         return;
     }
-
-    // check if target exists (stat follows the link)
     struct stat st;
     if (stat(link_name, &st) == -1) {
         printf("Warning: dangling symlink detected — %s points to nonexistent file\n", link_name);
@@ -213,7 +214,7 @@ void cmdList(Args_t *args){
 
     char permissions[30];
     permsToString(st.st_mode, permissions);
-    printf("File: %s\n", dist_report_path);
+    printf("\nFile: %s\n", dist_report_path);
     printf("Permissions: %s\n", permissions);
     printf("Size: %ld bytes\n", st.st_size);
      printf("Last modified: %s", ctime(&st.st_mtime));
@@ -308,9 +309,17 @@ void cmdRemove(Args_t *args){
 
     int total = st.st_size / sizeof(Report_t);
 
+    if (args->report_id < 0 || args->report_id >= total) {
+        printf("Error: report ID %d does not exist\n", args->report_id);
+        close(fd);
+        exit(1);
+    }
+
     for (int i = args->report_id; i < total - 1; i++) {
         lseek(fd, (i + 1) * sizeof(Report_t), SEEK_SET);
         read(fd, &report, sizeof(Report_t));
+
+        report.report_id = i;
 
         lseek(fd, i * sizeof(Report_t), SEEK_SET);
         write(fd, &report, sizeof(Report_t));
@@ -342,7 +351,7 @@ void cmdUpdateThreshold(Args_t *args){
     snprintf(threshold_str, sizeof(threshold_str), "threshold=%d\n", args->threshold);
     write(fd, threshold_str, strlen(threshold_str));
     close(fd);
-
+    logAction(args, "update_threshold");
     printf("Threshold updated to %d\n", args->threshold);
 }
 
@@ -432,6 +441,7 @@ void cmdFilter(Args_t *args) {
         }
     }
     close(fd);
+    logAction(args, "filter");
 }
 
 void runCommand(Args_t *args){
