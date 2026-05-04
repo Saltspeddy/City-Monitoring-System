@@ -1,5 +1,6 @@
 #include <sys/stat.h>   // stat(), mkdir()
 #include <sys/types.h>  // time_t, mode_t
+#include <sys/wait.h>  // waitpid()
 #include <time.h>       // time()
 #include <unistd.h>     // write(), read(), lseek()
 #include <fcntl.h>      // open()
@@ -46,6 +47,8 @@ void readCommand(char command[], Args_t *args){
         args->command = "update_threshold";
     else if (strcmp(command, "--filter") == 0)
         args->command = "filter";
+    else if (strcmp(command, "--remove_district") == 0)
+        args->command = "remove_district";
     else {
         printf("Error: unknown command '%s'\n", command);
         exit(1);
@@ -444,6 +447,40 @@ void cmdFilter(Args_t *args) {
     logAction(args, "filter");
 }
 
+void cmdRemoveDistrict(Args_t * args){
+    if(args->role != Manager){
+        printf("Error: only managers can remove districts\n");
+        exit(1);
+    }
+
+    char district_path[256], link_name[256];
+    snprintf(district_path, sizeof(district_path), "%s/%s", BASE_DIR, args->district);
+    snprintf(link_name, sizeof(link_name), "%s/active_reports-%s", BASE_DIR, args->district);
+
+    struct stat st;
+    if(stat(district_path, &st) == -1){
+        printf("Error: district '%s' not found\n", args->district);
+        exit(1);
+    }
+
+    pid_t pid = fork();
+
+    if(pid == 0){
+        execl("/bin/rm", "rm", "-rf", district_path, NULL);
+        printf("Error: execl failed\n");
+        exit(1);
+    }
+    else{
+        int status;
+        waitpid(pid, &status, 0);
+        unlink(link_name);
+        printf("District '%s' removed successfully\n", args->district);
+        logAction(args, "remove_district");
+    }
+
+
+}
+
 void runCommand(Args_t *args){
     if (strcmp(args->command, "add") == 0)
         cmdAdd(args);
@@ -457,7 +494,8 @@ void runCommand(Args_t *args){
         cmdUpdateThreshold(args);
     else if (strcmp(args->command, "filter") == 0)
         cmdFilter(args);
-       
+    else if (strcmp(args->command, "remove_district") == 0)
+        cmdRemoveDistrict(args);
     else {
         printf("Error: unknown command '%s'\n", args->command);
         exit(1);
