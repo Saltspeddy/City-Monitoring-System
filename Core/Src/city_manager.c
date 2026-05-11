@@ -1,6 +1,7 @@
 #include <sys/stat.h>   // stat(), mkdir()
 #include <sys/types.h>  // time_t, mode_t
-#include <sys/wait.h>  // waitpid()
+#include <sys/wait.h>   // waitpid()
+#include <signal.h>     // signal
 #include <time.h>       // time()
 #include <unistd.h>     // write(), read(), lseek()
 #include <fcntl.h>      // open()
@@ -166,6 +167,24 @@ void cmdAdd(Args_t *args) {
     logAction(args, "add");
 
     printf("Report added successfully with ID %d\n", report.report_id);
+
+    int monitor_fd = open("city_districts/.monitor_pid", O_RDONLY);
+    if(monitor_fd == -1){
+        logAction(args, "add - monitor could not be informed");
+    }
+    else{
+        char pid_str[32];
+        read(monitor_fd, pid_str, sizeof(pid_str));
+        close(monitor_fd);
+
+        pid_t monitor_pid = atoi(pid_str);
+        if(kill(monitor_pid, SIGUSR1) == -1){
+            logAction(args, "add - monitor could not be informed");
+        }
+        else{
+            logAction(args, "add - monitor notified");
+        }
+    }
 }
 
 void permsToString(mode_t mode, char *permissions) {
@@ -510,6 +529,4 @@ int main(int argc, char * argv[]){
     Args_t args = {0};
     readFlags(argc, argv, &args);
     runCommand(&args);
-
-    
-}
+} 

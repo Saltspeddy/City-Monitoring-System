@@ -1,13 +1,13 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -I Core/Inc/
- 
-SRC = Core/Src/city_manager.c
-OUT = city_manager
- 
-all: $(OUT)
- 
-$(OUT): $(SRC)
-	$(CC) $(CFLAGS) $(SRC) -o $(OUT)
- 
+
+all: city_manager monitor_reports
+
+city_manager: Core/Src/city_manager.c
+	$(CC) $(CFLAGS) Core/Src/city_manager.c -o city_manager
+
+monitor_reports: Core/Src/monitor_reports.c
+	$(CC) $(CFLAGS) Core/Src/monitor_reports.c -o monitor_reports
+
 clean:
-	rm -f $(OUT)
+	rm -f city_manager monitor_reports
